@@ -22,13 +22,12 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
         .var("UUID")
         .map(|x| Uuid::parse_str(&x.to_string()).unwrap_or_default())?;
     let host = req.url()?.host().map(|x| x.to_string()).unwrap_or_default();
-    let main_page_url = env.var("MAIN_PAGE_URL").map(|x|x.to_string()).unwrap();
-    let sub_page_url = env.var("SUB_PAGE_URL").map(|x|x.to_string()).unwrap();
-    let config = Config { uuid, host: host.clone(), proxy_addr: host, proxy_port: 443, main_page_url, sub_page_url };
+    // Hapus baris main_page_url dan sub_page_url
+    let config = Config { uuid, host: host.clone(), proxy_addr: host, proxy_port: 443 };
 
     Router::with_data(config)
-        .on_async("/", fe)
-        .on_async("/sub", sub)
+        .on_async("/", index)
+        .on_async("/sub", subscription)
         .on("/link", link)
         .on_async("/:proxyip", tunnel)
         .on_async("/Benxx-Project/:proxyip", tunnel)
@@ -36,20 +35,44 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
         .await
 }
 
-async fn get_response_from_url(url: String) -> Result<Response> {
-    let req = Fetch::Url(Url::parse(url.as_str())?);
-    let mut res = req.send().await?;
-    Response::from_html(res.text().await?)
+// Halaman utama statis (Welcome to nginx style)
+async fn index(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
+    Response::from_html(r#"<!DOCTYPE html>
+<html>
+<head><title>Welcome to nginx!</title>
+<style>
+    body { background: #0a0a0a; color: #0f0; font-family: monospace; text-align: center; padding: 50px; }
+    h1 { font-size: 3em; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and working. Further configuration is required.</p>
+<p>For online documentation and support please refer to <a href="https://nginx.org/">nginx.org</a>.</p>
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>"#)
 }
 
-async fn fe(_: Request, cx: RouteContext<Config>) -> Result<Response> {
-    get_response_from_url(cx.data.main_page_url).await
+// Halaman subscription statis (bisa sama atau berbeda)
+async fn subscription(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
+    Response::from_html(r#"<!DOCTYPE html>
+<html>
+<head><title>Subscription</title>
+<style>
+    body { background: #0a0a0a; color: #0f0; font-family: monospace; text-align: center; padding: 50px; }
+    h1 { font-size: 3em; }
+</style>
+</head>
+<body>
+<h1>Subscription Endpoint</h1>
+<p>This is a static subscription page.</p>
+</body>
+</html>"#)
 }
 
-async fn sub(_: Request, cx: RouteContext<Config>) -> Result<Response> {
-    get_response_from_url(cx.data.sub_page_url).await
-}
-
+// --- sisanya: fungsi tunnel, link (tidak berubah dari kode Anda) ---
+// (salin persis dari kode Anda untuk tunnel dan link, jangan diubah)
 
 async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> {
     let mut proxyip = cx.param("proxyip").unwrap().to_string();
@@ -66,7 +89,7 @@ async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> 
             let mut res = req.send().await?;
             if res.status_code() == 200 {
                 proxy_kv_str = res.text().await?.to_string();
-                kv.put("proxy_kv", &proxy_kv_str)?.expiration_ttl(60 * 60 * 12).execute().await?; // 12 hours
+                kv.put("proxy_kv", &proxy_kv_str)?.expiration_ttl(60 * 60 * 12).execute().await?;
             } else {
                 return Err(Error::from(format!("error getting proxy kv: {}", res.status_code())));
             }
@@ -74,11 +97,9 @@ async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> 
         
         let proxy_kv: HashMap<String, Vec<String>> = serde_json::from_str(&proxy_kv_str)?;
         
-        // select random KV ID
         let kv_index = (rand_buf[0] as usize) % kvid_list.len();
         proxyip = kvid_list[kv_index].clone();
         
-        // select random proxy ip
         let proxyip_index = (rand_buf[0] as usize) % proxy_kv[&proxyip].len();
         proxyip = proxy_kv[&proxyip][proxyip_index].clone().replace(":", "-");
     }
@@ -106,7 +127,6 @@ async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> 
     } else {
         Response::from_html("hi from wasm!")
     }
-
 }
 
 fn link(_: Request, cx: RouteContext<Config>) -> Result<Response> {
