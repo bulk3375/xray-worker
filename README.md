@@ -32,9 +32,14 @@ Token ini digunakan GitHub Actions untuk mengakses akun Cloudflare Anda.
 1. Buka [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens).  
 2. Klik **Create Token** → pilih template **Edit Cloudflare Workers**.   
 3. Klik **Continue to summary** → **Create Token**.  
-4. **Salin token yang muncul** (hanya terlihat sekali). Simpan dengan aman – jangan di-commit ke GitHub.
+4. **Set GitHub Repository Secret**
 
-> Token ini nanti akan dimasukkan sebagai **GitHub Secret**.
+   - Navigate to: GitHub → Your Repo → Settings → Secrets and variables → Actions
+   - Add a new secret:
+     - Name: `CLOUDFLARE_API_TOKEN`
+     - Value: Your API token
+> web ui yg saya bikin : https://free-cf.benxx.dpdns.org
+> silakan kreasikan sendiri untuk web ui nya
 
 ---
 
