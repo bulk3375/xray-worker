@@ -22,7 +22,6 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
         .var("UUID")
         .map(|x| Uuid::parse_str(&x.to_string()).unwrap_or_default())?;
     let host = req.url()?.host().map(|x| x.to_string()).unwrap_or_default();
-    // Hapus baris main_page_url dan sub_page_url
     let config = Config { uuid, host: host.clone(), proxy_addr: host, proxy_port: 443 };
 
     Router::with_data(config)
@@ -35,7 +34,6 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
         .await
 }
 
-// Halaman utama statis
 async fn index(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
     Response::from_html(r#"<!DOCTYPE html>
 <html>
@@ -58,10 +56,9 @@ async fn index(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
     <h1>Hello World</h1>
     <p>Welcome to my simple page.</p>
 </body>
-</html>
+</html>"#)
 }
 
-// Halaman subscription statis (bisa sama atau berbeda)
 async fn subscription(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
     Response::from_html(r#"<!DOCTYPE html>
 <html>
@@ -77,9 +74,6 @@ async fn subscription(_req: Request, _cx: RouteContext<Config>) -> Result<Respon
 </body>
 </html>"#)
 }
-
-// --- sisanya: fungsi tunnel, link (tidak berubah dari kode Anda) ---
-// (salin persis dari kode Anda untuk tunnel dan link, jangan diubah)
 
 async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> {
     let mut proxyip = cx.param("proxyip").unwrap().to_string();
