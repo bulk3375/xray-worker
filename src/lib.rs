@@ -22,11 +22,15 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
         .var("UUID")
         .map(|x| Uuid::parse_str(&x.to_string()).unwrap_or_default())?;
     let host = req.url()?.host().map(|x| x.to_string()).unwrap_or_default();
-    let config = Config { uuid, host: host.clone(), proxy_addr: host, proxy_port: 443 };
+    let config = Config {
+        uuid,
+        host: host.clone(),
+        proxy_addr: host,
+        proxy_port: 443,
+    };
 
     Router::with_data(config)
-        .on_async("/", index)
-        .on_async("/sub", subscription)
+        .on_async("/", tunnel)
         .on("/link", link)
         .on_async("/:proxyip", tunnel)
         .on_async("/Benxx-Project/:proxyip", tunnel)
@@ -34,96 +38,56 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
         .await
 }
 
-async fn index(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
-    Response::from_html(r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Hello World</title>
-    <style>
-        body {
-            background: #0a0a0a;
-            color: #0f0;
-            font-family: monospace;
-            text-align: center;
-            padding: 50px;
-        }
-        h1 {
-            font-size: 3em;
-        }
-    </style>
-</head>
-<body>
-    <h1>Hello World</h1>
-    <p>Welcome to my simple page.</p>
-</body>
-</html>"#)
-}
-
-async fn subscription(_req: Request, _cx: RouteContext<Config>) -> Result<Response> {
-    Response::from_html(r#"<!DOCTYPE html>
-<html>
-<head><title>Subscription</title>
-<style>
-    body { background: #0a0a0a; color: #0f0; font-family: monospace; text-align: center; padding: 50px; }
-    h1 { font-size: 3em; }
-</style>
-</head>
-<body>
-<h1>Subscription Endpoint</h1>
-<p>This is a static subscription page.</p>
-</body>
-</html>"#)
-}
-
 async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> {
-    let mut proxyip = cx.param("proxyip").unwrap().to_string();
-    if PROXYKV_PATTERN.is_match(&proxyip)  {
-        let kvid_list: Vec<String> = proxyip.split(",").map(|s|s.to_string()).collect();
+    let mut proxyip = cx.param("proxyip").map(|s| s.to_string()).unwrap_or_default();
+
+    // Logika KV (sama seperti kode asli Anda)
+    if PROXYKV_PATTERN.is_match(&proxyip) {
+        let kvid_list: Vec<String> = proxyip.split(',').map(|s| s.to_string()).collect();
         let kv = cx.kv("YUMI")?;
-        let mut proxy_kv_str = kv.get("proxy_kv").text().await?.unwrap_or("".to_string());
-        let mut rand_buf = [0u8, 1];
+        let mut proxy_kv_str = kv.get("proxy_kv").text().await?.unwrap_or_default();
+        let mut rand_buf = [0u8; 1];
         getrandom::getrandom(&mut rand_buf).expect("failed generating random number");
-        
-        if proxy_kv_str.len() == 0 {
+
+        if proxy_kv_str.is_empty() {
             console_log!("getting proxy kv from github...");
-            let req = Fetch::Url(Url::parse("https://raw.githubusercontent.com/datayumiwandi/shiroko/refs/heads/main/Data/Alive.json")?);
+            let url = "https://raw.githubusercontent.com/datayumiwandi/shiroko/refs/heads/main/Data/Alive.json";
+            let req = Fetch::Url(Url::parse(url)?);
             let mut res = req.send().await?;
             if res.status_code() == 200 {
-                proxy_kv_str = res.text().await?.to_string();
+                proxy_kv_str = res.text().await?;
                 kv.put("proxy_kv", &proxy_kv_str)?.expiration_ttl(60 * 60 * 12).execute().await?;
             } else {
                 return Err(Error::from(format!("error getting proxy kv: {}", res.status_code())));
             }
         }
-        
+
         let proxy_kv: HashMap<String, Vec<String>> = serde_json::from_str(&proxy_kv_str)?;
-        
         let kv_index = (rand_buf[0] as usize) % kvid_list.len();
         proxyip = kvid_list[kv_index].clone();
-        
         let proxyip_index = (rand_buf[0] as usize) % proxy_kv[&proxyip].len();
-        proxyip = proxy_kv[&proxyip][proxyip_index].clone().replace(":", "-");
+        proxyip = proxy_kv[&proxyip][proxyip_index].clone().replace(':', "-");
     }
 
     let upgrade = req.headers().get("Upgrade")?.unwrap_or_default();
-    if upgrade == "websocket".to_string() && PROXYIP_PATTERN.is_match(&proxyip) {
+    if upgrade == "websocket" && PROXYIP_PATTERN.is_match(&proxyip) {
         if let Some((addr, port_str)) = proxyip.split_once('-') {
             if let Ok(port) = port_str.parse() {
                 cx.data.proxy_addr = addr.to_string();
                 cx.data.proxy_port = port;
             }
         }
-        
+
         let WebSocketPair { server, client } = WebSocketPair::new()?;
         server.accept()?;
-    
+
         wasm_bindgen_futures::spawn_local(async move {
             let events = server.events().unwrap();
             if let Err(e) = ProxyStream::new(cx.data, &server, events).process().await {
                 console_error!("[tunnel]: {}", e);
             }
         });
-    
+
         Response::from_websocket(client)
     } else {
         Response::from_html("hi from wasm!")
@@ -149,8 +113,8 @@ fn link(_: Request, cx: RouteContext<Config>) -> Result<Response> {
             "path": "/ID",
             "tls": "",
             "sni": host,
-            "alpn": ""}
-        );
+            "alpn": ""
+        });
         format!("vmess://{}", URL_SAFE.encode(config.to_string()))
     };
     let vless_link = format!("vless://{uuid}@{host}:443?encryption=none&type=ws&host={host}&path=%2FID&security=tls&sni={host}#Changli vless");
