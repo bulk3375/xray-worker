@@ -2,7 +2,7 @@
 
 Xray is a lightweight, serverless V2Ray tunnel built on Cloudflare Workers, optimized for the Indonesian network environment. It supports modern mainstream proxy protocols and offers fast, secure, and highly scalable deployment without the need for a traditional VPS.
 
-🌐 **Web UI Demo:** [free-cf.benxx.dpdns.org](https://free-cf.benxx.dpdns.org)  
+🌐 **Web UI Demo:** [[https://link-565.pages.dev/](https://link-565.pages.dev/)
 *(Feel free to customize the Web UI according to your needs)*
 
 ---
