@@ -52,7 +52,7 @@ async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> 
 
         if proxy_kv_str.is_empty() {
             console_log!("getting proxy kv from github...");
-            let url = "https://raw.githubusercontent.com/datayumiwandi/shiroko/refs/heads/main/Data/Alive.json";
+            let url = "https://raw.githubusercontent.com/ziyosen/tunel-worker/refs/heads/main/proxy.json";
             let req = Fetch::Url(Url::parse(url)?);
             let mut res = req.send().await?;
             if res.status_code() == 200 {
