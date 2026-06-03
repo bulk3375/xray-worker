@@ -16,8 +16,9 @@ use regex::Regex;
 static PROXYIP_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^.+-\d+$").unwrap());
 static PROXYKV_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([A-Z]{2})").unwrap());
 
+
 #[event(fetch)]
-async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
+pub async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
     let uuid = env
         .var("UUID")
         .map(|x| Uuid::parse_str(&x.to_string()).unwrap_or_default())?;
@@ -41,7 +42,7 @@ async fn main(req: Request, env: Env, _: Context) -> Result<Response> {
 async fn tunnel(req: Request, mut cx: RouteContext<Config>) -> Result<Response> {
     let mut proxyip = cx.param("proxyip").map(|s| s.to_string()).unwrap_or_default();
 
-    // Logika KV (sama seperti kode asli Anda)
+    // Logika KV
     if PROXYKV_PATTERN.is_match(&proxyip) {
         let kvid_list: Vec<String> = proxyip.split(',').map(|s| s.to_string()).collect();
         let kv = cx.kv("YUMI")?;
